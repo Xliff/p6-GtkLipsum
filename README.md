@@ -3,4 +3,4 @@ A port of the [Ruby GtkLipsum](http://gtklipsum.sourceforge.net/) project to Per
 
 ![Screenshot](/Ipsum_Screenshot.png)
 
-This port is currently limited to the english language. Translators welcome.
+This port is currently limited to the English language. Translators welcome.
