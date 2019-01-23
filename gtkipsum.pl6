@@ -1,3 +1,4 @@
+#!/usr/bin/env perl6
 use v6.c;
 
 use Cro::HTTP::Client;
@@ -10,18 +11,21 @@ use GTK::Builder;
 my $a = GTK::Application.new( title => 'org.genex.gtk_ipsum' );
 my $b = GTK::Builder.new( pod => $=pod );
 my @options = [
-  bytes => 27..71680,
-  words => 5..10000,
-  paras => 1..150,
-  lists => 1..150,
+  bytes      => 27..71680,
+  words      => 5..10000,
+  paragraphs => 1..150,
+  lists      => 1..150,
 ];
 
 sub retrieve-ipsum {
-  $b<ProgressBar>.show_text = False;
+  $b<ProgressBar>.fraction = ($b<LabelOverlay>.visible = False).Num;
   $b<DebugTextView>.buffer.text = '';
 
-  my $canceller = $*SCHEDULER.cue({ $b<ProgressBar>.pulse }, every => 0.1);
-  my $what = @options[ $b<TypeCombo>.active ].key;
+  my $canceller = $*SCHEDULER.cue({ $b<ProgressBar>.pulse }, every => 0.05);
+  my $what = do given @options[ $b<TypeCombo>.active ].key {
+    when 'paragraphs' { 'paras' }
+    default           { $_ }
+  };
   my $amount = $b<LengthSpin>.value;
   my $start = $b<StartWithCheckButton>.active;
   my $url = qq:to/URL/.chomp;
@@ -47,8 +51,9 @@ URL
       map({ "\t{ $b }$_\n" }).
       join("\n");
   }
-  $b<ProgressBar>.show_text = True;
-  $b<ProgressBar>.text = $xml-parser.find('/feed/generated/text()').text;
+  $b<LabelOverlay>.text = $xml-parser.find('/feed/generated/text()').text;
+  $b<LabelOverlay>.visible = True;
+  $b<ProgressBar>.fraction = 1;
   $b<DebugTextView>.buffer.append("Done.");
   $canceller.cancel;
 }
@@ -74,28 +79,41 @@ $a.activate.tap({
   $b<GenerateButton>.clicked.tap({ retrieve-ipsum() });
 
   $b<MainWindow>.destroy-signal.tap({ $a.exit });
+
   $b<TypeCombo>.append_text($_) for @options.map( *.keys ).flat;
   $b<TypeCombo>.active = 2;
   $b<TypeCombo>.changed.tap({ typecombo_changed() });
   typecombo_changed();
 
   $b<MainWindow>.show-all;
+  $b<LabelOverlay>.hide;
 });
 
 $a.run;
+
+=begin css
+#ProgressBar trough {
+  min-height: 25px;
+}
+#ProgressBar trough progress {
+  min-height: 25px;
+}
+#LabelOverlay {
+  font-size: 10px;
+}
+=end css
 
 =begin ui
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Generated with glade 3.22.1 -->
 <interface>
-  <requires lib="gtk+" version="3.0"/>
+  <requires lib="gtk+" version="3.20"/>
   <object class="GtkWindow" id="MainWindow">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Lipsum.com rgtk interface</property>
     <property name="default_width">500</property>
     <property name="default_height">300</property>
-    <signal name="destroy" handler="on_MainWindow_destroy" swapped="no"/>
     <child>
       <placeholder/>
     </child>
@@ -240,10 +258,31 @@ $a.run;
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkProgressBar" id="ProgressBar">
+              <object class="GtkOverlay" id="Overlay">
+                <property name="name">Overlay</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="pulse_step">0.050000000745099998</property>
+                <property name="hexpand">False</property>
+                <child>
+                  <object class="GtkProgressBar" id="ProgressBar">
+                    <property name="name">ProgressBar</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">False</property>
+                    <property name="pulse_step">0.050000000745099998</property>
+                  </object>
+                  <packing>
+                    <property name="index">-1</property>
+                  </packing>
+                </child>
+                <child type="overlay">
+                  <object class="GtkLabel" id="LabelOverlay">
+                    <property name="name">LabelOverlay</property>
+                    <property name="visible">False</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">000 paragraphs, 00000 bytes in 000 seconds</property>
+                  </object>
+                </child>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -257,7 +296,7 @@ $a.run;
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">False</property>
-                <property name="use_underline">True</property>
+                <property name="halign">end</property>
                 <property name="active">True</property>
                 <property name="draw_indicator">True</property>
                 <signal name="toggled" handler="on_ReadOnlyCheckButton_toggled" swapped="no"/>
@@ -298,7 +337,7 @@ $a.run;
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">True</property>
+            <property name="fill">False</property>
             <property name="position">3</property>
           </packing>
         </child>
